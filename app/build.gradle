@@ -1,0 +1,29 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 30
+    buildToolsVersion "33.0.0"
+    namespace 'com.example'
+    defaultConfig {
+        applicationId "com.example"
+        minSdkVersion 26
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.0.0'
+    implementation 'org.eclipse.lsp4j:org.eclipse.lsp4j:+'
+    implementation 'io.github.Rosemoe.sora-editor:language-java:0.23.4'
+    implementation 'io.github.Rosemoe.sora-editor:editor:0.23.4'
+    implementation fileTree(dir: "libs", include: ["*.jar"])
+}
