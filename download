@@ -1,4 +1,4 @@
 cd app/src/main/assets
-wget https://github.com/TherCN/openjdk17-build/releases/download/1.0/OpenJDK17-AJIDE.tar.gz
-wget https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.33.0/jdt-language-server-1.33.0-202402151717.tar.gz -o jdt-language-server-1.33.0-202402151717.tar.gz
+wget -q https://github.com/TherCN/openjdk17-build/releases/download/1.0/OpenJDK17-AJIDE.tar.gz
+wget -q https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.33.0/jdt-language-server-1.33.0-202402151717.tar.gz -o jdt-language-server-1.33.0-202402151717.tar.gz
 cd $OLDPWD

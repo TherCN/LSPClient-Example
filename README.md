@@ -2,5 +2,5 @@
 build:  
 ```
 sh download
-./gradle assembleDebug
+./gradlew assembleDebug
 ```
