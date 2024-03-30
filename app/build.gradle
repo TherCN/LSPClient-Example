@@ -25,5 +25,6 @@ dependencies {
     implementation 'org.eclipse.lsp4j:org.eclipse.lsp4j:+'
     implementation 'io.github.Rosemoe.sora-editor:language-java:0.23.4'
     implementation 'io.github.Rosemoe.sora-editor:editor:0.23.4'
+    implementation 'io.github.Rosemoe.sora-editor:editor-lsp:0.23.4'
     implementation fileTree(dir: "libs", include: ["*.jar"])
 }

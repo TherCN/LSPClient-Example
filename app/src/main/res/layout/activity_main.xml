@@ -6,7 +6,7 @@
 	android:layout_height="match_parent"
 	android:orientation="vertical">
 
-	<io.github.rosemoe.sora.widget.CodeEditor
+	<com.example.ICodeEditor
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
 		android:id="@+id/ce"
@@ -17,18 +17,7 @@
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content">
 
-		<ScrollView
-			android:layout_width="match_parent"
-			android:layout_height="50dp">
-
-			<TextView
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:textSize="10sp"
-				android:id="@+id/request"/>
-
-		</ScrollView>
-
+		
 		<ScrollView
 			android:layout_width="match_parent"
 			android:layout_height="50dp">
@@ -40,6 +29,17 @@
 				android:id="@+id/message"/>
 
 		</ScrollView>
+
+		<HorizontalScrollView
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<io.github.rosemoe.sora.widget.SymbolInputView
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:id="@+id/siv"/>
+
+		</HorizontalScrollView>
 
 	</LinearLayout>
 
