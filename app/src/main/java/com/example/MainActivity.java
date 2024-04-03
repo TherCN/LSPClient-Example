@@ -1,6 +1,7 @@
 package com.example;
 
 import android.app.Activity;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Environment;
 import android.system.ErrnoException;
@@ -20,6 +21,12 @@ import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer;
 import io.github.rosemoe.sora.lsp.utils.LspUtilsKt;
 import io.github.rosemoe.sora.widget.SymbolInputView;
 import io.github.rosemoe.sora.widget.component.EditorAutoCompletion;
+import io.github.rosemoe.sora.widget.schemes.EditorColorScheme;
+import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
+import io.github.rosemoe.sora.widget.schemes.SchemeEclipse;
+import io.github.rosemoe.sora.widget.schemes.SchemeGitHub;
+import io.github.rosemoe.sora.widget.schemes.SchemeNotepadXX;
+import io.github.rosemoe.sora.widget.schemes.SchemeVS2019;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
@@ -36,9 +43,11 @@ import json.JSONException;
 import json.JSONObject;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 
+//此为基于Process和JSON发送接受实现的客户端，问题较多
 public class MainActivity extends Activity {
 
 	AsyncProcess process;
@@ -49,11 +58,12 @@ public class MainActivity extends Activity {
 	boolean started;
 	DiagnosticsContainer con;
 	JDTLSLanguage language;
+    JSONObject completionRequest;
 
 	JSONArray currentDiagnostics;
 	int lines = 0;
 	String projectPath = Environment.getExternalStorageDirectory() + "/AppProjects/MyJavaConsoleApp";
-	String filePath = projectPath + "/src/Main.java";
+	String filePath = projectPath + "/src/io/github/rosemoe/sora/lsp/editor/LspLanguage.kt";
 	String fileURI = "file://" + filePath;
 
 	private Runnable runnable = new Runnable() {
@@ -64,16 +74,14 @@ public class MainActivity extends Activity {
 				String temp;
 				while ((temp = br.readLine()) != null) {
 					lines++;
-					if (lines == 5) {
-						sendInit();
-					}
+					tv.append(temp + "\n");
 					if (temp.contains("}Content-Length")) {
 						temp = temp.substring(0, temp.lastIndexOf("}") + 1);
 					} else {
 						continue;
 					}
 					final String str = temp;	
-					TLog.i("Server", new JSONObject(str).toString(2));
+					TLog.i("Server", new JSONObject(str).toString(2) + "\n" + str);
 					if (str.contains("result") && editor.isEditable()) {
 						parseResult(new JSONObject(str));
 					} else {
@@ -82,10 +90,9 @@ public class MainActivity extends Activity {
 								@Override
 								public void run() {
 									tv.setText(str);
-									if (str.contains("Ready")) {
-										editor.setEditable(true);
-									}
+
 									if (str.contains("textDocument/publishDiagnostics")) {
+                                        Log.e("", "解析诊断");
 										addDiagnose(new JSONObject(str));
 									}
 								}
@@ -96,7 +103,6 @@ public class MainActivity extends Activity {
 			} catch (Exception e) {
 				Log.e("错误", Log.getStackTraceString(e));
 			}
-
 		}};
 
 	@Override
@@ -104,6 +110,7 @@ public class MainActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 		getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
 		ExtractAsset.unpackJDTLS(this);
 		ExtractAsset.unpackJDK(this);
 		ExtractAsset.unpackTestProject(this);
@@ -117,14 +124,18 @@ public class MainActivity extends Activity {
 			Os.setenv("JAVA_HOME", JAVA_HOME, true);
 			Os.setenv("PATH", Os.getenv("PATH") + ":" + JAVA_HOME + "/bin", true);
 			Os.setenv("LD_LIBRARY_PATH", JAVA_HOME + "/lib:" + JAVA_HOME + "/lib/server", true);
+            Os.setenv("TMPDIR", getFilesDir().getAbsolutePath(), true);
 			process = new AsyncProcess("sh", getFilesDir().getAbsolutePath() + "/jdtls.sh");
 			process.redirectErrorStream(true);
 			process.start();
+			Typeface t = Typeface.createFromFile(new File("/system/fonts/DroidSansMono.ttf"));
 			con = new DiagnosticsContainer();
 			editor = findViewById(R.id.ce);
 			editor.setFile(new File(filePath));
-			editor.setEditable(false);
-			language = new JDTLSLanguage();
+			editor.setTypefaceText(t);
+			//editor.setEditable(false);
+			editor.setColorScheme(new AIDEColorSchemes.Dark());
+			language = new JDTLSLanguage(this);
 			editor.setEditorLanguage(language);
 			SymbolInputView siv = findViewById(R.id.siv);
 			String[] charArray = new String[] {
@@ -185,16 +196,15 @@ public class MainActivity extends Activity {
 			siv.bindEditor(editor);
 			editor.setDiagnostics(con);
 			editor.subscribeEvent(ContentChangeEvent.class, new EventReceiver<ContentChangeEvent>() {
-				long lastInvoke = System.currentTimeMillis();
-				public void onReceive(final ContentChangeEvent event, Unsubscribe unsubscribe) {
-					new Thread(new Runnable() {
-							@Override
-							public void run() {
-								try {
-									sendUpdate(event);
-								} catch (Exception e) {}
-							}
-						}).start();
+					public void onReceive(final ContentChangeEvent event, Unsubscribe unsubscribe) {
+						new Thread(new Runnable() {
+								@Override
+								public void run() {
+									try {
+										sendUpdate(event);
+									} catch (Exception e) {}
+								}
+							}).start();
 					}
 				});
 		} catch (IOException|ErrnoException e) {
@@ -202,6 +212,11 @@ public class MainActivity extends Activity {
 		}
 		server = process.getProcess().getInputStream();
 		client = process.getProcess().getOutputStream();
+
+        customSleep(5000);
+        try {
+            sendInit();
+        } catch (Exception e) {}
 		new Thread(runnable).start();
 	}
 
@@ -211,27 +226,50 @@ public class MainActivity extends Activity {
 		MenuItemCompat.setShowAsAction(menu.findItem(R.id.undo), MenuItemCompat.SHOW_AS_ACTION_ALWAYS);
 		MenuItemCompat.setShowAsAction(menu.findItem(R.id.redo), MenuItemCompat.SHOW_AS_ACTION_ALWAYS);
 		MenuItemCompat.setShowAsAction(menu.findItem(R.id.save), MenuItemCompat.SHOW_AS_ACTION_ALWAYS);
+        menu.findItem(R.id.tomain).setVisible(false);
 		return super.onCreateOptionsMenu(menu);
 	}
 
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-final int id = item.getItemId();
-if (id == R.id.undo) {
-    editor.undo();
-} else if (id == R.id.save) {
-    try {
-        editor.saveFile();
-        Toast.makeText(getApplication(), "Saved！", Toast.LENGTH_SHORT).show();
-    } catch (IOException e) {
-        // 处理异常
-    }
-} else if (id == R.id.redo) {
-    editor.redo();
-}
-return super.onOptionsItemSelected(item);
+    /*
+     @Override
+     public boolean onOptionsItemSelected(MenuItem item) {
+     final int id = item.getItemId();
+     switch (id) {
+     case R.id.undo: editor.undo(); break;
+     case R.id.save:
+     try {
+     editor.saveFile();
+     Toast.makeText(getApplication(), "Saved！", Toast.LENGTH_SHORT).show();
+     } catch (IOException e) {} 
+     break;
+     case R.id.redo: editor.redo(); break;
+     case R.id.scheme_eclipse:
+     editor.setColorScheme(new SchemeEclipse());
+     break;
+     case R.id.scheme_vs2019:
+     editor.setColorScheme(new SchemeVS2019());
+     break;
+     case R.id.scheme_notepadpp:
+     editor.setColorScheme(new SchemeNotepadXX());
+     break;
+     case R.id.scheme_github:
+     editor.setColorScheme(new SchemeGitHub());
+     break;
+     case R.id.scheme_durcula:
+     editor.setColorScheme(new SchemeDarcula());
+     break;
+     case R.id.scheme_default:
+     editor.setColorScheme(new EditorColorScheme());
+     break;
+     case R.id.aide_dark:
+     editor.setColorScheme(new AIDEColorSchemes.Dark());
+     break;
+     case R.id.aide_light:
+     editor.setColorScheme(new AIDEColorSchemes.Light());
+     }
 
-	}
+     return super.onOptionsItemSelected(item);
+     }*/
 
 	@Override
 	protected void onPause() {
@@ -243,8 +281,16 @@ return super.onOptionsItemSelected(item);
 
 	@Override
 	public void onBackPressed() {
-		editor.getComponent(EditorAutoCompletion.class).hide();
+		onDestroy();
+        super.onBackPressed();
 	}
+
+    @Override
+    protected void onDestroy() {
+        editor.release();
+        process.getProcess().destroy();
+        super.onDestroy();
+    }
 
 	public static void customSleep(long milliseconds) {
         long startTime = System.currentTimeMillis();
@@ -252,23 +298,23 @@ return super.onOptionsItemSelected(item);
     }
 
 	public void sendUpdate(final ContentChangeEvent codeText) throws Exception {
+        FileUri file = new FileUri(filePath);
 		String changedText = codeText.getChangedText().toString();
 		JSONObject message = new JSONObject();
 		message.put("jsonrpc", "2.0");
 		message.put("method", "textDocument/didChange");
 	    JSONObject params = new JSONObject();
 		JSONObject textDocument = new JSONObject();
-		textDocument.put("version", 3);
-		textDocument.put("uri", fileURI);
+		textDocument.put("version", file.getVersion());
+		textDocument.put("uri", file.toUri().toString());
 		params.put("textDocument", textDocument);
 		JSONArray contentChanges = new JSONArray();
 		JSONObject text = new JSONObject();
-		text.put("text", codeText.getEditor().getText().toString());
+		text.put("text", editor.getText().toString());
 		contentChanges.put(text);
 		params.put("contentChanges", contentChanges);
 		message.put("params", params);
-
-		sendRequest(message, "change");
+        sendRequest(message, "change");
 
 		JSONObject jsonObject2 = new JSONObject();
 		jsonObject2.put("jsonrpc", "2.0");
@@ -294,14 +340,14 @@ return super.onOptionsItemSelected(item);
 		textDocument2.put("uri", fileURI);
 		params.put("textDocument", textDocument2);
 		jsonObject2.put("params", params);
-		
+
 		sendRequest(jsonObject2, "action");
 
 		if (changedText.equals(" ")) {
 			return;
 		}
 
-		JSONObject completionRequest = new JSONObject();
+		completionRequest = new JSONObject();
 		completionRequest.put("jsonrpc", "2.0");
 		completionRequest.put("method", "textDocument/completion");
 		params = new JSONObject();
@@ -313,17 +359,20 @@ return super.onOptionsItemSelected(item);
 		position.put("character", codeText.getChangeEnd().getColumn());
 		params.put("position", position);
 		completionRequest.put("params", params);
-
-		sendRequest(completionRequest, "completion");
+        requestCompletion();
 	}
 
-	public void parseResult(final JSONObject rawObj) {
 
+    public void requestCompletion() {
+        try {
+            sendRequest(completionRequest, "completion");
+        } catch (Exception e) {}
+    }
+
+	public void parseResult(final JSONObject rawObj) {
 		if (rawObj.getString("id").equals("completion")) {
 			language.setJSONData(rawObj);
-			try {
-				editor.getComponent(EditorAutoCompletion.class).requireCompletion();
-			} catch (IllegalStateException e) {}
+			editor.getComponent(EditorAutoCompletion.class).requireCompletion();
 		}
 		runOnUiThread(new Runnable(){
 
@@ -378,11 +427,12 @@ return super.onOptionsItemSelected(item);
 	}
 
 	private void sendInit() throws Exception {
+        FileUri file = new FileUri(filePath);
 		JSONObject json = new JSONObject();
 		JSONObject params = new JSONObject();
 		json.put("jsonrpc", "2.0");
 		json.put("method", "initialize");
-		
+
 		params.put("rootPath", projectPath);
 		params.put("rootUri", "file://" + projectPath);
 		JSONObject capabilities = new JSONObject();
@@ -432,7 +482,7 @@ return super.onOptionsItemSelected(item);
 		workspaceCapabilities.put("workspaceFolders", true);
 		capabilities.put("workspace", workspaceCapabilities);
 		params.put("capabilities", capabilities);
-		params.put("locale","zh_CN.UTF-8");
+		params.put("locale", "zh_CN.UTF-8");
 		json.put("params", params);
 
 		sendRequest(json, "init");
@@ -467,10 +517,10 @@ return super.onOptionsItemSelected(item);
 		json2.put("jsonrpc", "2.0");
 		json2.put("method", "textDocument/didOpen");
 		JSONObject textDoc = new JSONObject();
-		textDoc.put("uri", fileURI);
+		textDoc.put("uri", file.toUri().toString());
 		textDoc.put("languageId", "java");
-		textDoc.put("text", fileToString(filePath));
-		textDoc.put("version", 3);
+		textDoc.put("text", editor.getText().toString());
+		textDoc.put("version", file.getVersion());
 		params.put("textDocument", textDoc);
 		json2.put("params", params);
 
@@ -496,7 +546,7 @@ return super.onOptionsItemSelected(item);
 		range.put("end", end);
 		params.put("range", range);
 		JSONObject textDocument = new JSONObject();
-		textDocument.put("uri", textDoc.getString("uri"));
+		textDocument.put("uri", file.toUri().toString());
 		params.put("textDocument", textDocument);
 		jsonObject2.put("params", params);
 
@@ -509,7 +559,7 @@ return super.onOptionsItemSelected(item);
 		String content = json.toString() + "\n";
 		String headers = "Content-Length: " + content.length() + "\r\nContent-Type: application/vscode-jsonrpc;charset=utf8\n\n";
 		final String request = headers + content;
-		TLog.i("Client", json.toString(2));
+		TLog.i("Client", json.toString(2) + "\n" + json.toString());
 		client.write(request.getBytes());
 		client.flush();
 	}

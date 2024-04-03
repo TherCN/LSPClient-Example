@@ -40,6 +40,10 @@ public class AsyncProcess {
 	public void setProcessCallbak(ProcessCallbak listener) {
 		this.listener = listener;
 	}
+    
+    public ProcessBuilder getBuilder() {
+        return processBuilder;
+    }
 
 	public void start() {
 		prepare();

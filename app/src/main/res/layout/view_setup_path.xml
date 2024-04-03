@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:orientation="vertical"
+	android:layout_width="wrap_content"
+	android:layout_height="wrap_content">
+
+	<EditText
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:id="@+id/project_path"
+		android:hint="请输入项目路径"/>
+
+	<EditText
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:hint="请输入代码源文件路径"
+		android:id="@+id/source_file"/>
+
+	<TextView
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="此处源文件路径是以项目路径为开头，例如:项目路径是/sdcard/project，那么源代码路径就填写/src/main/java/a.java，拼凑出的完整路径就是/sdcard/project/src/main/java/a.java"
+		android:textSize="10sp"/>
+
+</LinearLayout>
+

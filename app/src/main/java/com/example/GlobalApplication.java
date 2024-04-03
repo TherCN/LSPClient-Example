@@ -146,6 +146,9 @@ public class GlobalApplication extends Application {
                         Looper.loop();
                     } catch (final Throwable e) {
                         Log.wtf("App Crash",e);
+                        if (TLog.defaultFile != null) {
+                            TLog.e(e);
+                        }
                         if (isRunning.get()) {
                             MAIN_HANDLER.post(new Runnable(){
 

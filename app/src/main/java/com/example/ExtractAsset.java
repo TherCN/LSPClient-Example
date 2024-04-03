@@ -1,9 +1,8 @@
 package com.example;
-import android.app.Activity;
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.os.Environment;
 import android.util.Log;
-import android.widget.Toast;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -11,9 +10,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import android.os.Environment;
-import android.system.Os;
-import android.system.ErrnoException;
 
 public class ExtractAsset {
 
@@ -23,20 +19,23 @@ public class ExtractAsset {
 		final File jdtlsDir = new File(context.getFilesDir(), "jdtls");
 		if (!jdtlsDir.exists()) {
 			jdtlsDir.mkdir();
-			exportAssets(context, "jdt-language-server-1.33.0-202402151717.tar.gz", jdtlsDir.getAbsolutePath());
+			exportAssets(context, "jdt-language-server-1.33.0-202402151717.tar", jdtlsDir.getAbsolutePath());
 			exportAssets(context, "jdtls.sh", context.getFilesDir().getAbsolutePath());
-			final String jdtlsPack = jdtlsDir.getAbsolutePath() + "/jdt-language-server-1.33.0-202402151717.tar.gz";
+			final String jdtlsPack = jdtlsDir.getAbsolutePath() + "/jdt-language-server-1.33.0-202402151717.tar";
 			AsyncProcess p = new AsyncProcess("tar", "xvf", jdtlsPack, "-C", jdtlsDir.getAbsolutePath());
 			p.setProcessCallbak(new AsyncProcess.ProcessCallbak() {
 					public void onProcessExit(final int p) {
 						try {
-							Runtime.getRuntime().exec(new String[]{"rm",jdtlsDir.getAbsolutePath() + "/*.gz"});
+							Runtime.getRuntime().exec(new String[]{"rm",jdtlsPack});
 						} catch (IOException e) {}
 					}
 					public void onCommandOutputUpdate(String output) {
 					}
 				});
 			p.start();
+            try {
+                p.getProcess().waitFor();
+            } catch (InterruptedException e) {}
 		}
 	}
 
@@ -44,8 +43,8 @@ public class ExtractAsset {
 		File jdkDir = new File(context.getFilesDir(), "jdk");
 		if (!jdkDir.exists()) {
 			jdkDir.mkdirs();
-			exportAssets(context, "OpenJDK17-AJIDE.tar.gz", jdkDir.getAbsolutePath());
-			final String jdkPack = jdkDir.getAbsolutePath() + "/OpenJDK17-AJIDE.tar.gz";
+			exportAssets(context, "OpenJDK17-AJIDE.tar", jdkDir.getAbsolutePath());
+			final String jdkPack = jdkDir.getAbsolutePath() + "/OpenJDK17-AJIDE.tar";
 			String str[] = {
 				"tar",
 				"xvf",
@@ -57,13 +56,6 @@ public class ExtractAsset {
 			AsyncProcess p = new AsyncProcess(str);
 			p.setProcessCallbak(new AsyncProcess.ProcessCallbak() {
 					public void onProcessExit(final int p) {
-						((Activity)context).runOnUiThread(new Runnable(){
-
-								@Override
-								public void run() {
-									Toast.makeText(context, "Decompression is complete, please restart the application" , Toast.LENGTH_SHORT).show();
-								}
-							});
 						try {
 							Runtime.getRuntime().exec(new String[]{"rm",jdkPack});
 						} catch (IOException e) {}
@@ -72,6 +64,9 @@ public class ExtractAsset {
 					}
 				});
 			p.start();
+            try {
+                p.getProcess().waitFor();
+            } catch (InterruptedException e) {}
 		}
 	}
 	

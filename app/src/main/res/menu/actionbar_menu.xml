@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:app="http://schemas.android.com/apk/res-auto">
-    
+
     <item
         android:id="@+id/undo"
         android:title="撤销"
@@ -16,5 +16,69 @@
         android:id="@+id/save"
         android:title="保存"
 		android:icon="@drawable/ic_save"/>
+
+
+	<!-- 父菜单项 -->
+	<item
+		android:id="@+id/menu_color_schemes"
+		android:title="配色方案"
+		app:showAsAction="always">
+
+		<!-- 子菜单项 -->
+
+        <item
+            android:id="@+id/scheme_eclipse"
+            android:title="Eclipse配色"
+            app:showAsAction="never"/>
+
+        <item
+            android:id="@+id/scheme_vs2019"
+            android:title="VS2019配色"
+            app:showAsAction="never"/>
+
+        <item
+            android:id="@+id/scheme_notepadpp"
+            android:title="Notepad++配色"
+            app:showAsAction="never"/>
+
+        <item
+            android:id="@+id/scheme_github"
+            android:title="Github配色"
+            app:showAsAction="never"/>
+
+        <item
+            android:id="@+id/scheme_durcula"
+            android:title="Durcula配色"
+            app:showAsAction="never"/>
+        <item
+            android:id="@+id/scheme_default"
+            android:title="默认配色"
+            app:showAsAction="never"/>
+
+        <item
+            android:id="@+id/scheme_aide"
+            android:title="AIDE配色">
+
+            <!-- 子菜单项 -->
+
+            <item
+                android:id="@+id/aide_light"
+                android:title="AIDE(亮)"
+                app:showAsAction="never"/>
+
+            <item
+                android:id="@+id/aide_dark"
+                android:title="AIDE(暗)"
+                app:showAsAction="never"/>
+
+        </item>
+    </item>
+    <item
+        android:id="@+id/setup_path"
+        android:title="修改路径"/>
     
+    <item
+        android:id="@+id/tomain"
+        android:title="开启另一活动"/>
+
 </menu>
