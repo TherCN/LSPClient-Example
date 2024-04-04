@@ -1,6 +1,12 @@
+#!/bin/sh
+sudo apt install axel -y
 cd app/src/main/assets
-wget https://github.com/TherCN/openjdk17-build/releases/download/1.0/OpenJDK17-AJIDE.tar.gz
-wget https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.33.0/jdt-language-server-1.33.0-202402151717.tar.gz -o jdt-language-server-1.33.0-202402151717.tar.gz
+#axel https://mirror.ghproxy.com/https://github.com/TherCN/openjdk17-build/releases/download/1.0/OpenJDK17-AJIDE.tar.gz
+#axel https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.33.0/jdt-language-server-1.33.0-202402151717.tar.gz -o jdt-language-server-1.33.0-202402151717.tar.gz
 gunzip OpenJDK17-AJIDE.tar.gz
+if [ -e "OpenJDK17-AJIDE.tar.gz" ]; then
+    file OpenJDK17-AJIDE.tar.gz
+    mv OpenJDK17-AJIDE.tar.gz OpenJDK17-AJIDE.tar
+fi
 gunzip jdt-language-server-1.33.0-202402151717.tar.gz
 cd $OLDPWD
