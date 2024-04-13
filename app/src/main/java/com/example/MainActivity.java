@@ -244,8 +244,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         /*
-        final int id = item.getItemId();
-        switch (id) {
+        switch (item.getItemId()) {
             case R.id.undo: editor.undo(); break;
             case R.id.save:
                 try {
@@ -278,6 +277,35 @@ public class MainActivity extends Activity {
             case R.id.aide_light:
                 editor.setColorScheme(new AIDEColorSchemes.Light());
         }*/
+        
+        if (item.getItemId() == R.id.undo) {
+            editor.undo();
+        } else if (item.getItemId() == R.id.save) {
+            try {
+                editor.saveFile();
+                Toast.makeText(getApplication(), "Saved！", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                // Handle the exception, possibly with a Toast or log message
+            }
+        } else if (item.getItemId() == R.id.redo) {
+            editor.redo();
+        } else if (item.getItemId() == R.id.scheme_eclipse) {
+            editor.setColorScheme(new SchemeEclipse());
+        } else if (item.getItemId() == R.id.scheme_vs2019) {
+            editor.setColorScheme(new SchemeVS2019());
+        } else if (item.getItemId() == R.id.scheme_notepadpp) {
+            editor.setColorScheme(new SchemeNotepadXX());
+        } else if (item.getItemId() == R.id.scheme_github) {
+            editor.setColorScheme(new SchemeGitHub());
+        } else if (item.getItemId() == R.id.scheme_durcula) {
+            editor.setColorScheme(new SchemeDarcula());
+        } else if (item.getItemId() == R.id.scheme_default) {
+            editor.setColorScheme(new EditorColorScheme());
+        } else if (item.getItemId() == R.id.aide_dark) {
+            editor.setColorScheme(new AIDEColorSchemes.Dark());
+        } else if (item.getItemId() == R.id.aide_light) {
+            editor.setColorScheme(new AIDEColorSchemes.Light());
+        }
 
         return super.onOptionsItemSelected(item);
     }

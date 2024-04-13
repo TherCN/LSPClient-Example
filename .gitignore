@@ -1,4 +1,4 @@
 /app/build
 /.gradle
 /app/src/main/assets/*.tar.gz
-/local.properties
+local.properties
