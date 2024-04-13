@@ -14,13 +14,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.view.MenuItemCompat;
 import com.example.R;
+import com.google.gson.Gson;
 import io.github.rosemoe.sora.event.ContentChangeEvent;
 import io.github.rosemoe.sora.event.EventReceiver;
 import io.github.rosemoe.sora.event.Unsubscribe;
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer;
 import io.github.rosemoe.sora.lsp.utils.LspUtilsKt;
 import io.github.rosemoe.sora.widget.SymbolInputView;
-import io.github.rosemoe.sora.widget.component.EditorAutoCompletion;
 import io.github.rosemoe.sora.widget.schemes.EditorColorScheme;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 import io.github.rosemoe.sora.widget.schemes.SchemeEclipse;
@@ -43,9 +43,13 @@ import json.JSONException;
 import json.JSONObject;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.DidChangeTextDocumentParams;
+import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.jsonrpc.messages.NotificationMessage;
+import org.eclipse.lsp4j.jsonrpc.messages.RequestMessage;
+
 
 //此为基于Process和JSON发送接受实现的客户端，问题较多
 public class MainActivity extends Activity {
@@ -54,16 +58,18 @@ public class MainActivity extends Activity {
 	InputStream server;
 	OutputStream client;
 	TextView tv;
-	ICodeEditor editor;
+	public static ICodeEditor editor;
 	boolean started;
 	DiagnosticsContainer con;
 	JDTLSLanguage language;
     JSONObject completionRequest;
+    Object lock = new Object();
 
+    String c = "";
 	JSONArray currentDiagnostics;
 	int lines = 0;
 	String projectPath = Environment.getExternalStorageDirectory() + "/AppProjects/MyJavaConsoleApp";
-	String filePath = projectPath + "/src/io/github/rosemoe/sora/lsp/editor/LspLanguage.kt";
+	String filePath = projectPath + "/src/Main.java";
 	String fileURI = "file://" + filePath;
 
 	private Runnable runnable = new Runnable() {
@@ -74,7 +80,18 @@ public class MainActivity extends Activity {
 				String temp;
 				while ((temp = br.readLine()) != null) {
 					lines++;
-					tv.append(temp + "\n");
+                    if (lines < 5) {
+                        final String text = temp;
+                        runOnUiThread(new Runnable(){
+
+                                @Override
+                                public void run() {
+                                    tv.append("\n" + text);
+                                }
+                            });
+                    } else if (lines == 5) {
+                        editor.setEditable(true);
+                        sendInit();}
 					if (temp.contains("}Content-Length")) {
 						temp = temp.substring(0, temp.lastIndexOf("}") + 1);
 					} else {
@@ -82,19 +99,15 @@ public class MainActivity extends Activity {
 					}
 					final String str = temp;	
 					TLog.i("Server", new JSONObject(str).toString(2) + "\n" + str);
-					if (str.contains("result") && editor.isEditable()) {
+					if (editor.isEditable()) {
 						parseResult(new JSONObject(str));
 					} else {
 						runOnUiThread(new Runnable(){
 
 								@Override
 								public void run() {
-									tv.setText(str);
 
-									if (str.contains("textDocument/publishDiagnostics")) {
-                                        Log.e("", "解析诊断");
-										addDiagnose(new JSONObject(str));
-									}
+									tv.setText(str);
 								}
 							});
 					}}
@@ -128,12 +141,12 @@ public class MainActivity extends Activity {
 			process = new AsyncProcess("sh", getFilesDir().getAbsolutePath() + "/jdtls.sh");
 			process.redirectErrorStream(true);
 			process.start();
-			Typeface t = Typeface.createFromFile(new File("/system/fonts/DroidSansMono.ttf"));
+            Typeface t = Typeface.createFromFile(new File("/system/fonts/DroidSansMono.ttf"));
 			con = new DiagnosticsContainer();
 			editor = findViewById(R.id.ce);
 			editor.setFile(new File(filePath));
 			editor.setTypefaceText(t);
-			//editor.setEditable(false);
+			editor.setEditable(false);
 			editor.setColorScheme(new AIDEColorSchemes.Dark());
 			language = new JDTLSLanguage(this);
 			editor.setEditorLanguage(language);
@@ -197,14 +210,12 @@ public class MainActivity extends Activity {
 			editor.setDiagnostics(con);
 			editor.subscribeEvent(ContentChangeEvent.class, new EventReceiver<ContentChangeEvent>() {
 					public void onReceive(final ContentChangeEvent event, Unsubscribe unsubscribe) {
-						new Thread(new Runnable() {
-								@Override
-								public void run() {
-									try {
-										sendUpdate(event);
-									} catch (Exception e) {}
-								}
-							}).start();
+
+                        try {
+                            setupCompeltion(event);
+                            sendUpdate(event);
+                        } catch (Exception e) {}
+
 					}
 				});
 		} catch (IOException|ErrnoException e) {
@@ -213,9 +224,8 @@ public class MainActivity extends Activity {
 		server = process.getProcess().getInputStream();
 		client = process.getProcess().getOutputStream();
 
-        customSleep(5000);
         try {
-            sendInit();
+
         } catch (Exception e) {}
 		new Thread(runnable).start();
 	}
@@ -230,46 +240,47 @@ public class MainActivity extends Activity {
 		return super.onCreateOptionsMenu(menu);
 	}
 
-    /*
-     @Override
-     public boolean onOptionsItemSelected(MenuItem item) {
-     final int id = item.getItemId();
-     switch (id) {
-     case R.id.undo: editor.undo(); break;
-     case R.id.save:
-     try {
-     editor.saveFile();
-     Toast.makeText(getApplication(), "Saved！", Toast.LENGTH_SHORT).show();
-     } catch (IOException e) {} 
-     break;
-     case R.id.redo: editor.redo(); break;
-     case R.id.scheme_eclipse:
-     editor.setColorScheme(new SchemeEclipse());
-     break;
-     case R.id.scheme_vs2019:
-     editor.setColorScheme(new SchemeVS2019());
-     break;
-     case R.id.scheme_notepadpp:
-     editor.setColorScheme(new SchemeNotepadXX());
-     break;
-     case R.id.scheme_github:
-     editor.setColorScheme(new SchemeGitHub());
-     break;
-     case R.id.scheme_durcula:
-     editor.setColorScheme(new SchemeDarcula());
-     break;
-     case R.id.scheme_default:
-     editor.setColorScheme(new EditorColorScheme());
-     break;
-     case R.id.aide_dark:
-     editor.setColorScheme(new AIDEColorSchemes.Dark());
-     break;
-     case R.id.aide_light:
-     editor.setColorScheme(new AIDEColorSchemes.Light());
-     }
 
-     return super.onOptionsItemSelected(item);
-     }*/
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        /*
+        final int id = item.getItemId();
+        switch (id) {
+            case R.id.undo: editor.undo(); break;
+            case R.id.save:
+                try {
+                    editor.saveFile();
+                    Toast.makeText(getApplication(), "Saved！", Toast.LENGTH_SHORT).show();
+                } catch (IOException e) {} 
+                break;
+            case R.id.redo: editor.redo(); break;
+            case R.id.scheme_eclipse:
+                editor.setColorScheme(new SchemeEclipse());
+                break;
+            case R.id.scheme_vs2019:
+                editor.setColorScheme(new SchemeVS2019());
+                break;
+            case R.id.scheme_notepadpp:
+                editor.setColorScheme(new SchemeNotepadXX());
+                break;
+            case R.id.scheme_github:
+                editor.setColorScheme(new SchemeGitHub());
+                break;
+            case R.id.scheme_durcula:
+                editor.setColorScheme(new SchemeDarcula());
+                break;
+            case R.id.scheme_default:
+                editor.setColorScheme(new EditorColorScheme());
+                break;
+            case R.id.aide_dark:
+                editor.setColorScheme(new AIDEColorSchemes.Dark());
+                break;
+            case R.id.aide_light:
+                editor.setColorScheme(new AIDEColorSchemes.Light());
+        }*/
+
+        return super.onOptionsItemSelected(item);
+    }
 
 	@Override
 	protected void onPause() {
@@ -315,64 +326,78 @@ public class MainActivity extends Activity {
 		params.put("contentChanges", contentChanges);
 		message.put("params", params);
         sendRequest(message, "change");
+        /*
+         JSONObject jsonObject2 = new JSONObject();
+         jsonObject2.put("jsonrpc", "2.0");
+         jsonObject2.put("method", "textDocument/codeAction");
+         params = new JSONObject();
+         JSONObject context = new JSONObject();
+         if (currentDiagnostics == null) {
+         currentDiagnostics = new JSONArray();
+         }
+         context.put("diagnostics", currentDiagnostics);
+         params.put("context", context);
+         JSONObject range = new JSONObject();
+         JSONObject start = new JSONObject();
+         JSONObject end = new JSONObject();
+         start.put("character", 0);
+         start.put("line", 0);
+         end.put("character", editor.getText().getLineString(editor.getLineCount() - 2).length());
+         end.put("line", editor.getText().getLineCount() - 2);
+         range.put("start", start);
+         range.put("end", end);
+         params.put("range", range);
+         JSONObject textDocument2 = new JSONObject();
+         textDocument2.put("uri", fileURI);
+         params.put("textDocument", textDocument2);
+         jsonObject2.put("params", params);
 
-		JSONObject jsonObject2 = new JSONObject();
-		jsonObject2.put("jsonrpc", "2.0");
-		jsonObject2.put("method", "textDocument/codeAction");
-		params = new JSONObject();
-		JSONObject context = new JSONObject();
-		if (currentDiagnostics == null) {
-			currentDiagnostics = new JSONArray();
-		}
-		context.put("diagnostics", currentDiagnostics);
-		params.put("context", context);
-		JSONObject range = new JSONObject();
-		JSONObject start = new JSONObject();
-		JSONObject end = new JSONObject();
-		start.put("character", 0);
-		start.put("line", 0);
-		end.put("character", editor.getText().getLineString(editor.getLineCount() - 2).length());
-		end.put("line", editor.getText().getLineCount() - 2);
-		range.put("start", start);
-		range.put("end", end);
-		params.put("range", range);
-		JSONObject textDocument2 = new JSONObject();
-		textDocument2.put("uri", fileURI);
-		params.put("textDocument", textDocument2);
-		jsonObject2.put("params", params);
+         sendRequest(jsonObject2, "action");
+         */
 
-		sendRequest(jsonObject2, "action");
 
-		if (changedText.equals(" ")) {
-			return;
-		}
-
-		completionRequest = new JSONObject();
-		completionRequest.put("jsonrpc", "2.0");
-		completionRequest.put("method", "textDocument/completion");
-		params = new JSONObject();
-		textDocument = new JSONObject();
-		textDocument.put("uri", fileURI);
-		params.put("textDocument", textDocument);
-		JSONObject position = new JSONObject();
-		position.put("line", codeText.getChangeEnd().getLine());
-		position.put("character", codeText.getChangeEnd().getColumn());
-		params.put("position", position);
-		completionRequest.put("params", params);
-        requestCompletion();
 	}
+    private void setupCompeltion(ContentChangeEvent codeText) {
+        completionRequest = new JSONObject();
+        completionRequest.put("jsonrpc", "2.0");
+        completionRequest.put("method", "textDocument/completion");
+        JSONObject params = new JSONObject();
+        JSONObject textDocument = new JSONObject();
+        textDocument.put("uri", fileURI);
+        params.put("textDocument", textDocument);
+        JSONObject position = new JSONObject();
+        position.put("line", codeText.getChangeEnd().getLine());
+        position.put("character", codeText.getChangeEnd().getColumn());
+        params.put("position", position);
+		completionRequest.put("params", params);
+    }
 
 
     public void requestCompletion() {
         try {
-            sendRequest(completionRequest, "completion");
-        } catch (Exception e) {}
+            c = "completion" + lines;
+            sendRequest(completionRequest, c);
+            Log.e("", Thread.currentThread().getState().toString());
+            synchronized (lock) {
+                Log.e("", "等待中");
+                cancelRequest(c);
+                lock.notify();
+                lock.wait();
+            }
+        } catch (Exception e) {
+            Log.e(getClass().getSimpleName(), Log.getStackTraceString(e));
+        }
     }
 
 	public void parseResult(final JSONObject rawObj) {
-		if (rawObj.getString("id").equals("completion")) {
+        if (!rawObj.has("id")) return;
+		if (rawObj.getString("id").equals(c)) {
+            synchronized (lock) {
+                Log.e("", "解除等待");
+                lock.notifyAll();
+            }
 			language.setJSONData(rawObj);
-			editor.getComponent(EditorAutoCompletion.class).requireCompletion();
+			//editor.getComponent(EditorAutoCompletion.class).requireCompletion();
 		}
 		runOnUiThread(new Runnable(){
 
@@ -512,19 +537,19 @@ public class MainActivity extends Activity {
 
 		 sendRequest(jsonObject);
 		 */
-		JSONObject json2 = new JSONObject();
-		params = new JSONObject();
-		json2.put("jsonrpc", "2.0");
-		json2.put("method", "textDocument/didOpen");
-		JSONObject textDoc = new JSONObject();
-		textDoc.put("uri", file.toUri().toString());
-		textDoc.put("languageId", "java");
-		textDoc.put("text", editor.getText().toString());
-		textDoc.put("version", file.getVersion());
-		params.put("textDocument", textDoc);
-		json2.put("params", params);
-
-		sendRequest(json2, "openfile");
+        DidOpenTextDocumentParams didopen = new DidOpenTextDocumentParams();
+        TextDocumentItem textDocumentItem = new TextDocumentItem();
+		//JSONObject json2 = new JSONObject();
+        didopen.setTextDocument(textDocumentItem);
+        textDocumentItem.setUri( file.toUri().toString());
+        textDocumentItem.setLanguageId("java");
+        textDocumentItem.setText(editor.getText().toString());
+		textDocumentItem.setVersion(file.getVersion());
+        RequestMessage message = new RequestMessage();
+        message.setMethod("textDocument/didOpen");
+        message.setParams(didopen);
+        message.setId("openfile");
+		sendRequest(new JSONObject(new Gson().toJson(message)), "openfile");
 
 
 		JSONObject jsonObject2 = new JSONObject();
@@ -540,8 +565,9 @@ public class MainActivity extends Activity {
 		JSONObject end = new JSONObject();
 		start.put("character", 0);
 		start.put("line", 0);
-		end.put("character", editor.getText().getLineString(editor.getLineCount() - 2).length());
-		end.put("line", editor.getText().getLineCount() - 2);
+        String text = editor.getText().toString();
+		end.put("character", text.isEmpty() ? 0 : editor.getText().getLineString(editor.getLineCount() - 1).length());
+		end.put("line", text.isEmpty() ? 1 : editor.getText().getLineCount() - 1);
 		range.put("start", start);
 		range.put("end", end);
 		params.put("range", range);
@@ -554,8 +580,22 @@ public class MainActivity extends Activity {
 
 	}
 
+    private void cancelRequest(String id) {
+        JSONObject jsonObject = new JSONObject();
+
+        // 向该JSONObject中添加元素
+        jsonObject.put("jsonrpc", "2.0");
+        jsonObject.put("method", "$/cancelRequest");
+
+        // 创建一个嵌套的JSONObject作为参数
+        JSONObject paramsObject = new JSONObject();
+        paramsObject.put("id", id);
+
+        // 将参数JSONObject添加到外层的JSONObject中
+        jsonObject.put("params", paramsObject);
+    }
 	public void sendRequest(final JSONObject json, String id) throws Exception {
-		json.put("id", id);
+        if (json.has("method")) json.put("id", id);
 		String content = json.toString() + "\n";
 		String headers = "Content-Length: " + content.length() + "\r\nContent-Type: application/vscode-jsonrpc;charset=utf8\n\n";
 		final String request = headers + content;

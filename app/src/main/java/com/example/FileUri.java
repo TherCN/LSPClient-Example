@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import io.github.rosemoe.sora.lsp.editor.completion.LspCompletionItem;
 
 public final class FileUri {
 
@@ -15,6 +16,7 @@ public final class FileUri {
     public FileUri(String path) {
         this.path = path;
     }
+    LspCompletionItem i;
 
     private ReadWriteLock lock = new ReentrantReadWriteLock();
     private Map<FileUri, Integer> versionMap = new HashMap<>();

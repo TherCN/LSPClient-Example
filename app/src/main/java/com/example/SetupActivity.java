@@ -68,7 +68,7 @@ public class SetupActivity extends Activity {
                     editor.commit();
                     editor.apply();
                     
-                    startActivity(new Intent(SetupActivity.this,JDTLSActivity.class));
+                    startActivity(new Intent(SetupActivity.this,JLSActivity.class));
                 }
             });
     }

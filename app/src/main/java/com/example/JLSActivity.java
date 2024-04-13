@@ -39,7 +39,7 @@ import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.services.LanguageServer;
 
-public class JDTLSActivity extends Activity {
+public class JLSActivity extends Activity {
 
     private static final String TAG = "JDTLSActivity";
     TextView tv;
